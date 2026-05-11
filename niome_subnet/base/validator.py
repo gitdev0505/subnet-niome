@@ -316,7 +316,8 @@ class BaseValidatorNeuron(BaseNeuron):
             if 0 <= ms.uid < self.metagraph.n
         ]
 
-        submit_validation_result(self, miner_scores=miner_score_dtos)
+        if task_id != "":
+            submit_validation_result(self, miner_scores=miner_score_dtos)
 
         final_uids = np.where(final_weights > 1e-8)[0].tolist()
         final_weight_values = final_weights[final_uids].tolist()
