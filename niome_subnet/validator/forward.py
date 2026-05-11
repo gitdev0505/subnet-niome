@@ -27,11 +27,11 @@ import os
 import time
 import urllib.request
 
-from typing import List, Optional
+from typing import Optional
 from niome_subnet.genomics.model import GroundTruth, Task, MinerSubmission
 from niome_subnet.genomics.scoring import create_mapping_file, score
 from niome_subnet.protocol import GenomicsTaskSynapse
-from niome_subnet.utils import get_miner_uids, get_random_uids
+from niome_subnet.utils import get_miner_uids
 
 from niome_subnet.utils.constants import BASE_BLOCK_NUMBER, BURNING_RATE, FETCHING_BLOCK, INTERVAL_BLOCKS, VALIDATION_BLOCK
 

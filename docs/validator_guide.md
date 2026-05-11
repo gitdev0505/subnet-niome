@@ -76,25 +76,27 @@ This section walks you through cloning the subnet-niome repository and installin
 
 ### 3. Running the Validator
 
-Once your hotkey is registered, you can start your Validator. 
+Once your hotkey is registered, you can start your Validator.
 
-1. **Run the Validator Script:** The core command to launch a validator neuron requires specifying your wallet and hotkey names, the network, and the subnet ID (`--netuid 55`).
-   
-   In your current subnet-niome project path
+1. **Make the script executable (first time only):**
 
-   **Bash**
-   ```
-   export PYTHONPATH="$PYTHONPATH:$(pwd)                                                               
+   ```bash
+   chmod +x entrypoint.sh
    ```
 
-   ```
-   python neurons/validator.py \
-   --netuid 55 \
-   --subtensor.network finney \
-   --wallet.name your_coldkey \
-   --wallet.hotkey your_hotkey \
-   --wandb.api_key your_api_key \ 
-   --logging.debug
+2. **Run interactively:**
+
+   ```bash
+   ./entrypoint.sh
    ```
 
-3. **Keep it Running:** Use a process manager like **`pm2`** or **`tmux`** to ensure your validator stays online. Validators must remain responsive to score miners and participate in consensus; downtime reduces emissions
+   `--wandb.api_key` is optional — omit it if you are not using Weights & Biases.
+
+   The script will:
+   - Create and activate a Python virtual environment (`.venv`) if one does not exist
+   - Install all Python dependencies from `requirements.txt`
+   - Install system tools (`bwa`, `samtools`, `tabix`, `bcftools`)
+   - Start `neurons/validator.py` as the PM2 process `niome_validator`
+   - Check the `main` branch every 60 seconds and automatically pull + restart on new commits
+
+   You will be prompted for `wallet.name`, `wallet.hotkey`, and optionally `wandb.api_key`.
