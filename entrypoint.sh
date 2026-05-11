@@ -60,7 +60,7 @@ if pm2 describe niome-validator &>/dev/null; then
     echo "[entrypoint] Deleting existing niome-validator process …"
     pm2 delete niome-validator
 fi
-pm2 start "$SCRIPT_DIR/scripts/run_validator.sh" \
+pm2 start "$SCRIPT_DIR/scripts/run_auto_update.sh" \
     --name niome-validator \
     --no-autorestart \
     -- "${VALIDATOR_ARGS[@]}"

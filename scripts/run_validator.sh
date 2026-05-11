@@ -16,8 +16,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-BRANCH="main"
-CHECK_INTERVAL=60   # seconds between git-fetch checks
 VENV_DIR="$REPO_DIR/.venv"
 VALIDATOR_PID=""
 
@@ -117,29 +115,5 @@ trap 'stop_validator; exit 0' SIGINT SIGTERM EXIT
 
 start_validator "${VALIDATOR_ARGS[@]}"
 
-while true; do
-    sleep "$CHECK_INTERVAL"
-
-    log "Checking for updates on origin/$BRANCH …"
-    git fetch origin "$BRANCH" --quiet
-
-    LOCAL=$(git rev-parse HEAD)
-    REMOTE=$(git rev-parse "origin/$BRANCH")
-
-    if [ "$LOCAL" != "$REMOTE" ]; then
-        log "Update detected ($LOCAL -> $REMOTE). Pulling and restarting …"
-        stop_validator
-
-        git pull origin "$BRANCH"
-
-        # Re-install package in case dependencies changed
-        if pip install -e . --quiet; then
-            log "Package reinstalled."
-        else
-            log "WARNING: pip install failed, continuing with existing install."
-        fi
-
-        start_validator "${VALIDATOR_ARGS[@]}"
-    else        log "No changes detected."
-    fi
-done
+# Wait for the validator process to finish
+wait "$VALIDATOR_PID"
