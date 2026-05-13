@@ -37,17 +37,31 @@ def create_mapping_file(ref_fasta: str, read1: str, read2: str) -> str:
 
 
 # -----------------------------
-# 1. VCf LOADER
+# 1. VCF LOADER
 # -----------------------------
+def normalize_gt(gt_tuple):
+    """Sort GT alleles to make phase-insensitive comparison (0/1 == 1/0)."""
+    if gt_tuple is None:
+        return None
+    return tuple(sorted(a if a is not None else -1 for a in gt_tuple))
+
+
 def load_vcf(path):
     vcf = pysam.VariantFile(path)
-    variants = set()
+    variants = {}  # (contig, pos, ref, alt) -> normalized GT tuple or None
 
     for rec in vcf.fetch():
         if rec.alts is None:
             continue
         for alt in rec.alts:
-            variants.add((rec.contig, rec.pos, rec.ref, alt))
+            key = (rec.contig, rec.pos, rec.ref, alt)
+            gt = None
+            try:
+                sample = next(iter(rec.samples.values()))
+                gt = normalize_gt(sample['GT'])
+            except (StopIteration, KeyError, TypeError):
+                pass
+            variants[key] = gt
 
     return variants
 
@@ -84,13 +98,38 @@ def load_depth(bam_path):
 
 
 # -----------------------------
-# 4. COMPUTE CONFUSION MATRIX
+# 4. COMPUTE WEIGHTED SETS
 # -----------------------------
-def compute_sets(truth, pred):
-    tp = truth & pred
-    fp = pred - truth
-    fn = truth - pred
-    return tp, fp, fn
+def compute_weighted_sets(truth: dict, pred: dict, depth_map: dict):
+    """Compute weighted TP/FP/FN with genotype-aware matching.
+
+    Per-variant match score:
+      1.0 — correct REF+ALT+genotype
+      0.5 — correct REF+ALT, wrong zygosity (phase-insensitive: 0/1 == 1/0)
+      0.0 — missed
+    """
+    tp_w = 0.0
+    fp_w = 0.0
+    fn_w = 0.0
+
+    for key, truth_gt in truth.items():
+        w = variant_weight(depth_map.get(key[1], 0))
+        if key in pred:
+            pred_gt = pred[key]
+            if truth_gt is None or pred_gt is None or truth_gt == pred_gt:
+                match = 1.0
+            else:
+                match = 0.5
+            tp_w += w * match
+            fn_w += w * (1.0 - match)
+        else:
+            fn_w += w
+
+    for key in pred:
+        if key not in truth:
+            fp_w += variant_weight(depth_map.get(key[1], 0))
+
+    return tp_w, fp_w, fn_w
 
 
 # -----------------------------
@@ -109,15 +148,10 @@ def variant_weight(depth):
 # -----------------------------
 # 6. WEIGHTED METRICS
 # -----------------------------
-def weighted_metrics(tp, fp, fn, depth_map):
-    tp_w = sum(variant_weight(depth_map.get(v[1], 0)) for v in tp)
-    fp_w = sum(variant_weight(depth_map.get(v[1], 0)) for v in fp)
-    fn_w = sum(variant_weight(depth_map.get(v[1], 0)) for v in fn)
-
+def weighted_metrics(tp_w: float, fp_w: float, fn_w: float):
     precision = tp_w / (tp_w + fp_w + 1e-9)
     recall = tp_w / (tp_w + fn_w + 1e-9)
     f1 = 2 * precision * recall / (precision + recall + 1e-9)
-
     return precision, recall, f1
 
 
@@ -200,11 +234,11 @@ def score(miner_submission: MinerSubmission, ground_truth: GroundTruth, bam: str
         # [3] Loading depth from BAM
         depth = load_depth(bam)
 
-        # [4] Computing overlap
-        tp, fp, fn = compute_sets(truth, pred)
+        # [4] Computing weighted sets (genotype-aware)
+        tp_w, fp_w, fn_w = compute_weighted_sets(truth, pred, depth)
 
         # [5] Computing weighted metrics
-        p, r, f1 = weighted_metrics(tp, fp, fn, depth)
+        p, r, f1 = weighted_metrics(tp_w, fp_w, fn_w)
 
         vcf_score = score_vcf(p, r, f1, miner_submission.response_time)
 
