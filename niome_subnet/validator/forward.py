@@ -180,8 +180,8 @@ async def query_axon(self, axon, synapse) -> Optional[GenomicsTaskSynapse]:
         bt.logging.error(f"Error querying axon {axon}: {e}")
         return None
 
-async def fetch_miners_vcf(self):
-    bt.logging.info("Fetching miners' vcf...")
+async def collect_miners_responses(self):
+    bt.logging.info("Collecting miners' responses...")
     try:
         os.makedirs("data", exist_ok=True)
         os.makedirs("vcfs", exist_ok=True)
@@ -222,6 +222,10 @@ async def fetch_miners_vcf(self):
                 vcf_content = f"##response_time={response.elapsed_time}\n" + response.vcf_content
                 f.write(vcf_content)
 
+            if response.cftr_annotations is not None:
+                with open(f"vcfs/{uid}.annotations.json", "w") as f:
+                    json.dump(response.cftr_annotations, f)
+
         self.is_validating = False
     except Exception as e:
         bt.logging.error(f"Error during fetching process: {e}")
@@ -230,7 +234,7 @@ async def fetch_miners_vcf(self):
 
 async def run_validation(self):
     try:
-        bt.logging.info("Validating miner's vcf...")
+        bt.logging.info("Validating miners' responses...")
 
         ground_truth = await fetch_ground_truth(self)
         bt.logging.info(f"Fetched ground truth")
@@ -240,6 +244,8 @@ async def run_validation(self):
         ground_truth.truth_vcf = "data/truth.vcf"
         urllib.request.urlretrieve(ground_truth.ref, "data/ref.fa")
         ground_truth.ref = "data/ref.fa"
+        urllib.request.urlretrieve(ground_truth.cftr2_annotations, "data/cftr2_annotations.json")
+        ground_truth.cftr2_annotations = "data/cftr2_annotations.json"
 
         bam = create_mapping_file(ground_truth.ref, "data/read_1.fq", "data/read_2.fq")
 
@@ -260,16 +266,23 @@ async def run_validation(self):
                     vcf_lines.append(line)
             vcf_content = "".join(vcf_lines)
 
+            cftr_annotations = None
+            annotations_path = f"vcfs/{os.path.splitext(vcf_file)[0]}.annotations.json"
+            if os.path.exists(annotations_path):
+                with open(annotations_path) as f:
+                    cftr_annotations = json.load(f)
+
             miner_score = score(
                 MinerSubmission(
                     uid=uid,
                     vcf_content=vcf_content,
                     response_time=response_time,
+                    cftr_annotations=cftr_annotations,
                 ), ground_truth, bam)
 
             final_scores.append(miner_score)
 
-        bt.logging.info(f"Scores: {final_scores}")
+        bt.logging.info(f"Scores: {[(score.uid, score.vcf_score, score.annotation_score, score.final_score) for score in final_scores]}")
         self.set_weights(final_scores, self.task_id)
     except Exception as e:
         bt.logging.error(f"Error validating miners' vcf: {e}")
@@ -299,7 +312,7 @@ async def forward(self):
         else:
             if (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS == FETCHING_BLOCK and not self.is_fetching:
                 self.is_fetching = True
-                asyncio.create_task(fetch_miners_vcf(self))
+                asyncio.create_task(collect_miners_responses(self))
             elif (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS == VALIDATION_BLOCK and not self.is_validating:
                 self.is_validating = True
                 asyncio.create_task(run_validation(self))

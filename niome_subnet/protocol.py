@@ -20,8 +20,8 @@ class GenomicsTaskSynapse(bt.Synapse):
 
     # Output fields
     vcf_content: Optional[str] = None
+    cftr_annotations: Optional[Dict[str, Any]] = None
     elapsed_time: Optional[float] = None
-    answer_json: Optional[Dict[str, Any]] = None  # Structured answer JSON
     signature: Optional[str] = None  # Cryptographic signature
 
     def deserialize(self) -> bt.Synapse:

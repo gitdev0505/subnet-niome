@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import bittensor as bt
+import json
 import pysam
 import subprocess
 import os
@@ -123,10 +124,55 @@ def weighted_metrics(tp, fp, fn, depth_map):
 # -----------------------------
 # 7. FINAL SCORE
 # -----------------------------
-def final_score(p, r, f1, response_time):
+def score_vcf(p, r, f1, response_time):
     score1 = 0.4 * f1 + 0.3 * p + 0.3 * r
     # score2 = (max(FORWARD_TIMEOUT - response_time, 0) / FORWARD_TIMEOUT) ** 2 * score1
     return score1
+
+
+# -----------------------------
+# 9. ANNOTATION SCORING
+# -----------------------------
+_CFTR_DRUGS = [
+    "ivacaftor",
+    "tezacaftor_ivacaftor",
+    "elexacaftor_tezacaftor_ivacaftor",
+    "lumacaftor_ivacaftor",
+]
+
+
+def score_annotations(miner_annotations: dict, truth_annotations: dict) -> float:
+    """Score miner CFTR2 annotations against ground truth.
+
+    Returns 0.0 if annotation counts differ, otherwise returns the
+    average per-variant score where each variant is scored as:
+      - hgvs match:                  weight 0.1
+      - clinical_significance match: weight 0.1
+      - drug_response (4 drugs):     weight 0.8 total (0.2 each drug)
+    """
+    if len(miner_annotations) != len(truth_annotations):
+        return 0.0
+
+    total_score = 0.0
+    for rsid, truth_entry in truth_annotations.items():
+        miner_entry = miner_annotations.get(rsid, {})
+        variant_score = 0.0
+
+        if miner_entry.get("hgvs") == truth_entry.get("hgvs"):
+            variant_score += 0.1
+
+        if miner_entry.get("clinical_significance") == truth_entry.get("clinical_significance"):
+            variant_score += 0.1
+
+        truth_drug = truth_entry.get("drug_response", {})
+        miner_drug = miner_entry.get("drug_response", {})
+        for drug in _CFTR_DRUGS:
+            if miner_drug.get(drug) == truth_drug.get(drug):
+                variant_score += 0.2
+
+        total_score += variant_score
+
+    return total_score / len(truth_annotations)
 
 
 # -----------------------------
@@ -160,7 +206,19 @@ def score(miner_submission: MinerSubmission, ground_truth: GroundTruth, bam: str
         # [5] Computing weighted metrics
         p, r, f1 = weighted_metrics(tp, fp, fn, depth)
 
-        score_val = final_score(p, r, f1, miner_submission.response_time)
+        vcf_score = score_vcf(p, r, f1, miner_submission.response_time)
+
+        # Score CFTR2 annotations (weight 0.3 in final score)
+        annotation_score = 0.0
+        if miner_submission.cftr_annotations is not None and ground_truth.cftr2_annotations:
+            try:
+                with open(ground_truth.cftr2_annotations) as _f:
+                    truth_annotations = json.load(_f)
+                annotation_score = score_annotations(miner_submission.cftr_annotations, truth_annotations)
+            except Exception as _e:
+                bt.logging.warning(f"Failed to score annotations for miner {miner_submission.uid}: {_e}")
+
+        score_val = 0.7 * vcf_score + 0.3 * annotation_score
 
         miner_score = MinerScore(
             uid=miner_submission.uid,
@@ -168,8 +226,10 @@ def score(miner_submission: MinerSubmission, ground_truth: GroundTruth, bam: str
             recall=r,
             f1_score=f1,
             response_time=miner_submission.response_time,
+            vcf_score=vcf_score,
+            annotation_score=annotation_score,
             final_score=score_val,
-            log=f"Scored with {len(tp)} TP, {len(fp)} FP, {len(fn)} FN.\nPrecision: {p:.4f}, Recall: {r:.4f}, F1: {f1:.4f}, Final Score: {score_val:.4f}\n\nMiner VCF\n{miner_submission.vcf_content}",
+            log=f"VCF Score: {vcf_score:.4f}, Annotation Score: {annotation_score:.4f}, Final Score: {score_val:.4f}\n\nMiner VCF\n{miner_submission.vcf_content}",
         )
 
         return miner_score
@@ -181,6 +241,8 @@ def score(miner_submission: MinerSubmission, ground_truth: GroundTruth, bam: str
             recall=0.0,
             f1_score=0.0,
             response_time=miner_submission.response_time,
+            vcf_score=0.0,
+            annotation_score=0.0,
             final_score=0.0,
             log=f"Error: {e}",
         )

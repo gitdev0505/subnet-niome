@@ -72,25 +72,18 @@ class Miner(BaseMinerNeuron):
             # TODO: Generate VCF file based on JSON schema task
             vcf_content = ""
 
+            # TODO: Generate CFTR annotations from the task
+            cftr_annotations = {}
+
             # Check timeout window
             elapsed_time = time.time() - start_time
 
-            # Create structured answer JSON (use hash instead of full content)
-            vcf_hash = hashlib.sha256(vcf_content.encode()).hexdigest()
-            answer_json = {
-                "vcf_hash": vcf_hash,
-                "vcf_length": len(vcf_content),
-                "task_parameters": task_data,
-                "model_version": "1.0",
-                "timestamp": time.time(),
-            }
-
             # Return VCF content to validator (as required)
             synapse.vcf_content = vcf_content
-            synapse.answer_json = answer_json
+            synapse.cftr_annotations = cftr_annotations
 
             bt.logging.info(
-                f"Generated VCF file from JSON schema task: {answer_json['vcf_length']} characters, "
+                f"Generated VCF file and cftr_annotations from JSON schema task: {len(vcf_content)} characters, "
                 f"time: {elapsed_time:.2f}s"
             )
             bt.logging.debug(f"VCF content preview: {vcf_content[:200]}...")

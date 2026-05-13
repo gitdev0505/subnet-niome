@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Generic, TypeVar
+from typing import Any, Dict, Generic, Optional, TypeVar
 
 
 class TaskInput(BaseModel):
@@ -32,12 +32,14 @@ class Task(BaseModel):
 class GroundTruth(BaseModel):
     truth_vcf: str
     ref: str
+    cftr2_annotations: str
 
 
 class MinerSubmission(BaseModel):
     uid: int
     vcf_content: str
     response_time: float
+    cftr_annotations: Optional[Dict[str, Any]] = None
 
 
 class ValidationContext:
@@ -77,6 +79,8 @@ class MinerScore(BaseModel):
     recall: float
     f1_score: float
     response_time: float
+    vcf_score: float
+    annotation_score: float
     final_score: float
     log: str
 
@@ -90,6 +94,8 @@ class MinerScoreDto(BaseModel):
     recall: float
     f1_score: float
     response_time: float
+    vcf_score: float
+    annotation_score: float
     final_score: float
     log: str
     weight: float
