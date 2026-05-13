@@ -308,6 +308,8 @@ class BaseValidatorNeuron(BaseNeuron):
                 recall=ms.recall,
                 f1_score=ms.f1_score,
                 response_time=ms.response_time,
+                vcf_score=ms.vcf_score,
+                annotation_score=ms.annotation_score,
                 final_score=ms.final_score,
                 log=ms.log,
                 weight=float(final_weights[ms.uid]),
