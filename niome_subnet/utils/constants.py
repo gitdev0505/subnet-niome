@@ -8,7 +8,7 @@ MINER_QUERY_K = 5
 
 # ---- Scoring Constants -----
 TOP_MINER_COUNT = 10
-SCORE_DISTRIBUTION = [0.6, 0.2, 0.05, 0.04, 0.03, 0.02, 0.02, 0.02, 0.01, 0.01]
+SCORE_DISTRIBUTION = [0.2, 0.2, 0.2, 0.1, 0.1, 0.05, 0.05, 0.05, 0.025, 0.025]
 
 
 # ---- Backend Request -----
@@ -31,7 +31,7 @@ MAX_SUBMIT_RETRIES = 3
 WANDB_MAX_LOGS = 60_000
 
 SCORING_SYSTEM = "top"  # "linear", "top"
-BURNING_RATE = 1.0
+BURNING_RATE = 0.9
 OWNER_HOTKEY = "5DJ5fT174AY8GzbYHnamYQCJd4cTcj2Zf7ogUvBhry1KfYVd"
 
 BASE_BLOCK_NUMBER = 8034230
