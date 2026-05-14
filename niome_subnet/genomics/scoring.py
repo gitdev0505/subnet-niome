@@ -116,7 +116,7 @@ def compute_weighted_sets(truth: dict, pred: dict, depth_map: dict):
         w = variant_weight(depth_map.get(key[1], 0))
         if key in pred:
             pred_gt = pred[key]
-            if truth_gt is None or pred_gt is None or truth_gt == pred_gt:
+            if truth_gt is None or truth_gt == pred_gt:
                 match = 1.0
             else:
                 match = 0.5
