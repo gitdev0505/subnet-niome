@@ -98,6 +98,8 @@ class BaseNeuron(ABC):
         self.weights: list[int] = []
         self.task_id: str = ""
 
+        self.are_weights_committed = False
+
         bt.logging.info(f"Wallet: {self.wallet}")
         bt.logging.info(f"Subtensor: {self.subtensor}")
         bt.logging.info(f"Metagraph: {self.metagraph}")
@@ -170,7 +172,12 @@ class BaseNeuron(ABC):
 
         blocks = (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS - WEIGHT_SET_BLOCK
 
-        return blocks >= 0 and blocks < 5
+        if blocks >= 0 and not self.are_weights_committed:
+            self.are_weights_committed = True
+            return True
+        else:
+            return False
+    
 
     def save_state(self):
         bt.logging.trace(
