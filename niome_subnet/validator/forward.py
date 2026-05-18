@@ -312,6 +312,7 @@ async def forward(self):
         else:
             if (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS == FETCHING_BLOCK and not self.is_fetching:
                 self.is_fetching = True
+                self.are_weights_committed = False
                 asyncio.create_task(collect_miners_responses(self))
             elif (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS == VALIDATION_BLOCK and not self.is_validating:
                 self.is_validating = True
