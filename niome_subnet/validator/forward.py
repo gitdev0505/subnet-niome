@@ -227,6 +227,7 @@ async def collect_miners_responses(self):
                     json.dump(response.cftr_annotations, f)
 
         self.is_validating = False
+        bt.logging.info("Finished collecting responses.")
     except Exception as e:
         bt.logging.error(f"Error during fetching process: {e}")
     finally:
