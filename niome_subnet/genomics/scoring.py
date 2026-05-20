@@ -7,7 +7,6 @@ import os
 
 from collections import defaultdict
 from niome_subnet.genomics.model import GroundTruth, MinerScore, MinerSubmission
-from niome_subnet.utils.constants import FORWARD_TIMEOUT
 
 # -----------------------------
 # Compress and index vcf
@@ -160,7 +159,6 @@ def weighted_metrics(tp_w: float, fp_w: float, fn_w: float):
 # -----------------------------
 def score_vcf(p, r, f1, response_time):
     score1 = 0.4 * f1 + 0.3 * p + 0.3 * r
-    # score2 = (max(FORWARD_TIMEOUT - response_time, 0) / FORWARD_TIMEOUT) ** 2 * score1
     return score1
 
 
@@ -178,13 +176,16 @@ _CFTR_DRUGS = [
 def score_annotations(miner_annotations: dict, truth_annotations: dict) -> float:
     """Score miner CFTR2 annotations against ground truth.
 
-    Returns 0.0 if annotation counts differ, otherwise returns the
-    average per-variant score where each variant is scored as:
+    Iterates over truth entries only; missing miner entries score 0.
+    Extra miner entries beyond truth are ignored (expected_variant_count is
+    hidden from miners, so count matching is not enforced).
+
+    Per-variant match score:
       - hgvs match:                  weight 0.1
       - clinical_significance match: weight 0.1
       - drug_response (4 drugs):     weight 0.8 total (0.2 each drug)
     """
-    if len(miner_annotations) != len(truth_annotations):
+    if not truth_annotations:
         return 0.0
 
     total_score = 0.0
@@ -206,7 +207,10 @@ def score_annotations(miner_annotations: dict, truth_annotations: dict) -> float
 
         total_score += variant_score
 
-    return total_score / len(truth_annotations)
+    # Penalise FP annotations: divide by the larger of truth or miner count so
+    # submitting the entire cftr2_annotations.json does not yield a free high score.
+    denominator = max(len(truth_annotations), len(miner_annotations))
+    return total_score / denominator
 
 
 # -----------------------------
