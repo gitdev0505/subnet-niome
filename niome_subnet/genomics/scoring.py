@@ -177,8 +177,6 @@ def score_annotations(miner_annotations: dict, truth_annotations: dict) -> float
     """Score miner CFTR2 annotations against ground truth.
 
     Iterates over truth entries only; missing miner entries score 0.
-    Extra miner entries beyond truth are ignored (expected_variant_count is
-    hidden from miners, so count matching is not enforced).
 
     Per-variant match score:
       - hgvs match:                  weight 0.1
