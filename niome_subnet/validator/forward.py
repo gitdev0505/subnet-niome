@@ -215,8 +215,6 @@ async def collect_miners_responses(self):
             for line in lines:
                 if not line.startswith("#"):
                     variant_count += 1
-            if variant_count != task.expected_variant_count:
-                continue
 
             with open(f"vcfs/{uid}.vcf", "w") as f:
                 vcf_content = f"##response_time={response.elapsed_time}\n" + response.vcf_content
