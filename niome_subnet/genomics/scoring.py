@@ -135,10 +135,10 @@ def compute_weighted_sets(truth: dict, pred: dict, depth_map: dict):
 # 5. VARIANT DIFFICULTY MODEL
 # -----------------------------
 def variant_weight(depth):
-    # Simple but effective heuristic
-    if depth < 10:
+    # Thresholds aligned with the lower coverage range (6–12x)
+    if depth < 8:
         return 0.3   # hard
-    elif depth < 20:
+    elif depth < 14:
         return 0.6   # medium
     else:
         return 1.0   # easy
