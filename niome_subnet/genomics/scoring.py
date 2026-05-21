@@ -233,6 +233,15 @@ def score(miner_submission: MinerSubmission, ground_truth: GroundTruth, bam: str
         truth = load_vcf(truth_norm)
         pred  = load_vcf(miner_norm)
 
+        # [2b] Count penalty: raw miner count (before normalization) vs truth count.
+        # Invalid variants silently dropped by bcftools norm are treated as FPs here.
+        miner_raw_count = len(load_vcf(miner_vcf))
+        truth_count = len(truth)
+        if truth_count > 0 and miner_raw_count > 0:
+            count_penalty = min(miner_raw_count, truth_count) / max(miner_raw_count, truth_count)
+        else:
+            count_penalty = 0.0
+
         # [3] Loading depth from BAM
         depth = load_depth(bam)
 
@@ -242,7 +251,7 @@ def score(miner_submission: MinerSubmission, ground_truth: GroundTruth, bam: str
         # [5] Computing weighted metrics
         p, r, f1 = weighted_metrics(tp_w, fp_w, fn_w)
 
-        vcf_score = score_vcf(p, r, f1, miner_submission.response_time)
+        vcf_score = score_vcf(p, r, f1, miner_submission.response_time) * count_penalty
 
         # Score CFTR2 annotations (weight 0.3 in final score)
         annotation_score = 0.0
@@ -252,7 +261,7 @@ def score(miner_submission: MinerSubmission, ground_truth: GroundTruth, bam: str
                     truth_annotations = json.load(_f)
                 annotation_score = score_annotations(miner_submission.cftr_annotations, truth_annotations)
             except Exception as _e:
-                bt.logging.warning(f"Failed to score annotations for miner {miner_submission.uid}: {_e}")
+                print(f"Failed to score annotations for miner {miner_submission.uid}: {_e}")
 
         score_val = 0.7 * vcf_score + 0.3 * annotation_score
 
@@ -270,7 +279,7 @@ def score(miner_submission: MinerSubmission, ground_truth: GroundTruth, bam: str
 
         return miner_score
     except Exception as e:
-        bt.logging.warning(f"Error scoring miner {miner_submission.uid}: {e}")
+        print(f"Scoring miner {miner_submission.uid} is skipped: {e}")
         return MinerScore(
             uid=miner_submission.uid,
             precision=0.0,
