@@ -189,7 +189,7 @@ async def collect_miners_responses(self):
         np.random.shuffle(miner_uids)
 
         miner_task = await fetch_task(self)
-        bt.logging.info(f"Fetched task: {miner_task.model_dump()}")
+        bt.logging.info("Fetched task")
         task = copy.deepcopy(miner_task)
         self.task_id = task.task_id
 
