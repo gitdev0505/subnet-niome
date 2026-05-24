@@ -191,7 +191,11 @@ async def collect_miners_responses(self):
         miner_task = await fetch_task(self)
         bt.logging.info("Fetched task")
         task = copy.deepcopy(miner_task)
-        self.task_id = task.task_id
+
+        if self.task_id != task.task_id:
+            self.collected_uids = []
+        else:
+            self.task_id = task.task_id
 
         # Download task reads
         urllib.request.urlretrieve(task.input.read1_fastq, "data/read_1.fq")
