@@ -200,6 +200,9 @@ async def collect_miners_responses(self):
         task.input.read2_fastq = "data/read_2.fq"
 
         for uid in miner_uids:
+            if uid in self.collected_uids:
+                continue
+
             synapse = GenomicsTaskSynapse(task=miner_task, timeout=config.FORWARD_TIMEOUT)
 
             axon = self.metagraph.axons[uid]
@@ -223,6 +226,9 @@ async def collect_miners_responses(self):
             if response.cftr_annotations is not None:
                 with open(f"vcfs/{uid}.annotations.json", "w") as f:
                     json.dump(response.cftr_annotations, f)
+
+            self.collected_uids.append(uid)
+            self.save_state()
 
         self.is_validating = False
         bt.logging.info("Finished collecting responses.")
@@ -282,6 +288,9 @@ async def run_validation(self):
             final_scores.append(miner_score)
 
         bt.logging.info(f"Scores: {[(score.uid, score.vcf_score, score.annotation_score, score.final_score) for score in final_scores]}")
+
+        self.collected_uids = []
+
         self.set_weights(final_scores, self.task_id)
     except Exception as e:
         bt.logging.error(f"Error validating miners' vcf: {e}")
@@ -309,11 +318,12 @@ async def forward(self):
                 wait_for_inclusion=False,
             )
         else:
-            if (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS == FETCHING_BLOCK and not self.is_fetching:
+            blocks = (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS
+            if blocks >= FETCHING_BLOCK and blocks < VALIDATION_BLOCK and not self.is_fetching:
                 self.is_fetching = True
                 self.are_weights_committed = False
                 asyncio.create_task(collect_miners_responses(self))
-            elif (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS == VALIDATION_BLOCK and not self.is_validating:
+            elif blocks == VALIDATION_BLOCK and not self.is_validating:
                 self.is_validating = True
                 asyncio.create_task(run_validation(self))
     except Exception as e:

@@ -45,7 +45,7 @@ class Validator(BaseValidatorNeuron):
     def __init__(self, config=None):
         super(Validator, self).__init__(config=config)
 
-        # self.load_state()
+        self.load_state()
         
         self.init_wandb()
 

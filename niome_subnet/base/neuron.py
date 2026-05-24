@@ -97,6 +97,7 @@ class BaseNeuron(ABC):
         self.uids: list[int] = []
         self.weights: list[int] = []
         self.task_id: str = ""
+        self.collected_uids: list[int] = []
 
         self.are_weights_committed = False
 
