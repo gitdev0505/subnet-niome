@@ -207,6 +207,9 @@ async def collect_miners_responses(self):
             if uid in self.collected_uids:
                 continue
 
+            self.collected_uids.append(uid)
+            self.save_state()
+
             synapse = GenomicsTaskSynapse(task=miner_task, timeout=config.FORWARD_TIMEOUT)
 
             axon = self.metagraph.axons[uid]
@@ -230,9 +233,6 @@ async def collect_miners_responses(self):
             if response.cftr_annotations is not None:
                 with open(f"vcfs/{uid}.annotations.json", "w") as f:
                     json.dump(response.cftr_annotations, f)
-
-            self.collected_uids.append(uid)
-            self.save_state()
 
         self.is_validating = False
         bt.logging.info("Finished collecting responses.")
