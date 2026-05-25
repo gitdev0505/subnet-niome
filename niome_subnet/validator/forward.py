@@ -238,8 +238,6 @@ async def collect_miners_responses(self):
         bt.logging.info("Finished collecting responses.")
     except Exception as e:
         bt.logging.error(f"Error during fetching process: {e}")
-    finally:
-        self.is_fetching = False
 
 async def run_validation(self):
     try:
@@ -328,6 +326,7 @@ async def forward(self):
                 self.are_weights_committed = False
                 asyncio.create_task(collect_miners_responses(self))
             elif blocks == VALIDATION_BLOCK and not self.is_validating:
+                self.is_fetching = False
                 self.is_validating = True
                 asyncio.create_task(run_validation(self))
     except Exception as e:
