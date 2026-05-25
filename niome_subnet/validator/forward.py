@@ -308,6 +308,21 @@ async def forward(self):
 
     """
     try:
+        if not self.are_weights_committed:
+            self.load_state()
+            result, msg = self.subtensor.set_weights(
+                wallet=self.wallet,
+                netuid=self.config.netuid,
+                uids=self.uids,
+                weights=self.weights,
+                wait_for_finalization=False,
+                wait_for_inclusion=False,
+            )
+            if result:
+                bt.logging.info("set_weights on chain successfully!")
+            else:
+                bt.logging.error("set_weights failed", msg)
+            self.are_weights_committed = True
         if BURNING_RATE == 1.0 and not self.is_validating:
             self.is_validating = True
             self.set_weights([], "")
