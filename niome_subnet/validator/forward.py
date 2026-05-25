@@ -323,6 +323,7 @@ async def forward(self):
             else:
                 bt.logging.error("set_weights failed", msg)
             self.are_weights_committed = True
+
         if BURNING_RATE == 1.0 and not self.is_validating:
             self.is_validating = True
             self.set_weights([], "")
