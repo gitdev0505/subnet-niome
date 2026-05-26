@@ -288,7 +288,7 @@ async def run_validation(self):
 
             final_scores.append(miner_score)
 
-        bt.logging.info(f"Scores: {[(score.uid, score.vcf_score, score.annotation_score, score.final_score) for score in final_scores]}")
+        bt.logging.info(f"Scores: {[(score.uid, score.final_score) for score in final_scores]}")
 
         self.collected_uids = []
 
