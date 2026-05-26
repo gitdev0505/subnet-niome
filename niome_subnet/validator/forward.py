@@ -26,6 +26,7 @@ import niome_subnet.utils.constants as config
 import os
 import time
 import urllib.request
+import shutil
 
 from typing import Optional
 from niome_subnet.genomics.model import GroundTruth, Task, MinerSubmission
@@ -33,7 +34,7 @@ from niome_subnet.genomics.scoring import create_mapping_file, score
 from niome_subnet.protocol import GenomicsTaskSynapse
 from niome_subnet.utils import get_miner_uids
 
-from niome_subnet.utils.constants import BASE_BLOCK_NUMBER, BURNING_RATE, FETCHING_BLOCK, INTERVAL_BLOCKS, VALIDATION_BLOCK
+from niome_subnet.utils.constants import BASE_BLOCK_NUMBER, BURNING_RATE, FETCHING_BLOCK, INTERVAL_BLOCKS, VALIDATION_BLOCK, WEIGHT_SET_BLOCK
 
 sem = asyncio.Semaphore(config.MINER_QUERY_K)
 
@@ -184,7 +185,6 @@ async def collect_miners_responses(self):
     bt.logging.info("Collecting miners' responses...")
     try:
         os.makedirs("data", exist_ok=True)
-        os.makedirs("vcfs", exist_ok=True)
         miner_uids = get_miner_uids(self)
         np.random.shuffle(miner_uids)
 
@@ -194,7 +194,10 @@ async def collect_miners_responses(self):
 
         if self.task_id != task.task_id:
             self.collected_uids = []
+            shutil.rmtree("vcfs", ignore_errors=True)
+
         self.task_id = task.task_id
+        os.makedirs("vcfs", exist_ok=True)
 
         # Download task reads
         urllib.request.urlretrieve(task.input.read1_fastq, "data/read_1.fq")
@@ -324,7 +327,7 @@ async def forward(self):
                 self.is_fetching = True
                 self.are_weights_committed = False
                 asyncio.create_task(collect_miners_responses(self))
-            elif (blocks - VALIDATION_BLOCK) >= 0 and (blocks - VALIDATION_BLOCK) < 10 and not self.is_validating:
+            elif blocks >= VALIDATION_BLOCK and blocks < WEIGHT_SET_BLOCK and not self.is_validating:
                 self.is_fetching = False
                 self.is_validating = True
                 asyncio.create_task(run_validation(self))
