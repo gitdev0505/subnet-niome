@@ -173,7 +173,7 @@ class BaseNeuron(ABC):
 
         blocks = (self.block - BASE_BLOCK_NUMBER) % INTERVAL_BLOCKS - WEIGHT_SET_BLOCK
 
-        if blocks >= 0 and blocks < 5 and not self.are_weights_committed:
+        if not self.are_weights_committed:
             self.are_weights_committed = True
             return True
         else:

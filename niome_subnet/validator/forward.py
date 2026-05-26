@@ -324,7 +324,7 @@ async def forward(self):
                 self.is_fetching = True
                 self.are_weights_committed = False
                 asyncio.create_task(collect_miners_responses(self))
-            elif not self.is_validating:
+            elif (blocks - VALIDATION_BLOCK) >= 0 and (blocks - VALIDATION_BLOCK) < 10 and not self.is_validating:
                 self.is_fetching = False
                 self.is_validating = True
                 asyncio.create_task(run_validation(self))
