@@ -194,8 +194,7 @@ async def collect_miners_responses(self):
 
         if self.task_id != task.task_id:
             self.collected_uids = []
-        else:
-            self.task_id = task.task_id
+        self.task_id = task.task_id
 
         # Download task reads
         urllib.request.urlretrieve(task.input.read1_fastq, "data/read_1.fq")
@@ -325,7 +324,7 @@ async def forward(self):
                 self.is_fetching = True
                 self.are_weights_committed = False
                 asyncio.create_task(collect_miners_responses(self))
-            elif blocks == VALIDATION_BLOCK and not self.is_validating:
+            elif (blocks - VALIDATION_BLOCK) >= 0 and (blocks - VALIDATION_BLOCK) < 10 and not self.is_validating:
                 self.is_fetching = False
                 self.is_validating = True
                 asyncio.create_task(run_validation(self))
