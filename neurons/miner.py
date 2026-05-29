@@ -14,6 +14,7 @@
 # DEALINGS IN THE SOFTWARE.
 
 
+import json
 import os
 import sys
 import hashlib
@@ -25,6 +26,7 @@ import bittensor as bt
 # import base miner class which takes care of most of the boilerplate
 from niome_subnet.base.miner import BaseMinerNeuron
 from niome_subnet.protocol import GenomicsTaskSynapse
+from niome_subnet.utils.encryption import encrypt
 
 bt.logging.on()
 
@@ -78,9 +80,16 @@ class Miner(BaseMinerNeuron):
             # Check timeout window
             elapsed_time = time.time() - start_time
 
-            # Return VCF content to validator (as required)
-            synapse.vcf_content = vcf_content
-            synapse.cftr_annotations = cftr_annotations
+            # Encrypt and return the response
+            if synapse.encryption_key:
+                synapse.encrypted_vcf = encrypt(synapse.encryption_key, vcf_content)
+                synapse.encrypted_annotations = encrypt(
+                    synapse.encryption_key, json.dumps(cftr_annotations)
+                )
+            else:
+                bt.logging.warning("No encryption_key provided; sending plaintext (not recommended)")
+                synapse.encrypted_vcf = None
+                synapse.encrypted_annotations = None
 
             bt.logging.info(
                 f"Generated VCF file and cftr_annotations from JSON schema task: {len(vcf_content)} characters, "

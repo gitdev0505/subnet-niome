@@ -33,6 +33,7 @@ from niome_subnet.genomics.model import GroundTruth, Task, MinerSubmission
 from niome_subnet.genomics.scoring import create_mapping_file, score
 from niome_subnet.protocol import GenomicsTaskSynapse
 from niome_subnet.utils import get_miner_uids
+from niome_subnet.utils.encryption import generate_keypair, decrypt
 
 from niome_subnet.utils.constants import BASE_BLOCK_NUMBER, BURNING_RATE, FETCHING_BLOCK, INTERVAL_BLOCKS, VALIDATION_BLOCK, WEIGHT_SET_BLOCK
 
@@ -212,29 +213,48 @@ async def collect_miners_responses(self):
             self.collected_uids.append(uid)
             self.save_state()
 
-            synapse = GenomicsTaskSynapse(task=miner_task, timeout=config.FORWARD_TIMEOUT)
+            # Generate a fresh RSA keypair for this miner so no miner can
+            # re-submit another miner's encrypted response.
+            public_key_pem, private_key_pem = generate_keypair()
+
+            synapse = GenomicsTaskSynapse(
+                task=miner_task,
+                timeout=config.FORWARD_TIMEOUT,
+                encryption_key=public_key_pem,
+            )
 
             axon = self.metagraph.axons[uid]
             if axon.ip == '0.0.0.0':
                 continue
 
             response = await query_axon(self, axon, synapse)
-            if response is None or response.vcf_content is None:
+            if response is None or response.encrypted_vcf is None:
                 continue
 
-            lines = response.vcf_content.splitlines()
+            try:
+                vcf_content = decrypt(private_key_pem, response.encrypted_vcf)
+            except Exception as e:
+                bt.logging.error(f"Failed to decrypt VCF for uid {uid}: {e}")
+                continue
+
+            lines = vcf_content.splitlines()
             variant_count = 0
             for line in lines:
                 if not line.startswith("#"):
                     variant_count += 1
 
             with open(f"vcfs/{uid}.vcf", "w") as f:
-                vcf_content = f"##response_time={response.elapsed_time}\n" + response.vcf_content
-                f.write(vcf_content)
+                vcf_file_content = f"##response_time={response.elapsed_time}\n" + vcf_content
+                f.write(vcf_file_content)
 
-            if response.cftr_annotations is not None:
-                with open(f"vcfs/{uid}.annotations.json", "w") as f:
-                    json.dump(response.cftr_annotations, f)
+            if response.encrypted_annotations is not None:
+                try:
+                    annotations_str = decrypt(private_key_pem, response.encrypted_annotations)
+                    cftr_annotations = json.loads(annotations_str)
+                    with open(f"vcfs/{uid}.annotations.json", "w") as f:
+                        json.dump(cftr_annotations, f)
+                except Exception as e:
+                    bt.logging.error(f"Failed to decrypt annotations for uid {uid}: {e}")
 
         self.is_validating = False
         bt.logging.info("Finished collecting responses.")

@@ -16,11 +16,12 @@ class GenomicsTaskSynapse(bt.Synapse):
 
     # Input fields
     task: Optional[Task] = None
+    encryption_key: str = ""
     timeout: Optional[float] = None  # Timeout window for submission
 
-    # Output fields
-    vcf_content: Optional[str] = None
-    cftr_annotations: Optional[Dict[str, Any]] = None
+    # Output fields (encrypted via hybrid RSA+AES-GCM when encryption_key is set)
+    encrypted_vcf: Optional[str] = None         # JSON payload from encryption.encrypt()
+    encrypted_annotations: Optional[str] = None # JSON payload from encryption.encrypt()
     elapsed_time: Optional[float] = None
     signature: Optional[str] = None  # Cryptographic signature
 
