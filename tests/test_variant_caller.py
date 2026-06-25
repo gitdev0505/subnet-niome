@@ -1,0 +1,66 @@
+"""Tests for variant calling helpers."""
+
+from niome_subnet.genomics.variant_caller import (
+    _vcf_column_names,
+    annotate_cftr_variants,
+    build_empty_vcf,
+    normalize_vcf_sample_column,
+    parse_region,
+)
+
+
+def test_parse_region():
+    chrom, start, end = parse_region("chr7:117480000-117670000")
+    assert chrom == "chr7"
+    assert start == 117480000
+    assert end == 117670000
+
+
+def test_build_empty_vcf_has_required_columns():
+    vcf = build_empty_vcf("chr7:117480000-117670000")
+    header = [line for line in vcf.splitlines() if line.startswith("#CHROM")][0]
+    columns = header.lstrip("#").split("\t")
+    assert columns == [
+        "CHROM",
+        "POS",
+        "ID",
+        "REF",
+        "ALT",
+        "QUAL",
+        "FILTER",
+        "INFO",
+        "FORMAT",
+        "SAMPLE",
+    ]
+    assert not any(line and not line.startswith("#") for line in vcf.splitlines())
+
+
+def test_annotate_cftr_variants_empty_for_header_only_vcf():
+    vcf = build_empty_vcf("chr7:117480000-117670000")
+    assert annotate_cftr_variants(vcf) == {}
+
+
+def test_vcf_column_names_strips_hash_from_chrom():
+    header = "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE"
+    assert _vcf_column_names(header) == {
+        "CHROM",
+        "POS",
+        "ID",
+        "REF",
+        "ALT",
+        "QUAL",
+        "FILTER",
+        "INFO",
+        "FORMAT",
+        "SAMPLE",
+    }
+
+
+def test_normalize_vcf_sample_column_renames_bcftools_default():
+    vcf = (
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\taligned.bam\n"
+    )
+    normalized = normalize_vcf_sample_column(vcf)
+    header = [line for line in normalized.splitlines() if line.startswith("#CHROM")][0]
+    assert header.endswith("\tSAMPLE")

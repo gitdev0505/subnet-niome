@@ -19,12 +19,14 @@ import os
 import sys
 import hashlib
 import time
+import asyncio
 from typing import Tuple
 
 import bittensor as bt
 
 # import base miner class which takes care of most of the boilerplate
 from niome_subnet.base.miner import BaseMinerNeuron
+from niome_subnet.genomics.variant_caller import run_variant_calling
 from niome_subnet.protocol import GenomicsTaskSynapse
 from niome_subnet.utils.encryption import encrypt
 
@@ -71,11 +73,9 @@ class Miner(BaseMinerNeuron):
 
             bt.logging.info(f"Processing genomics task: {task_data}")
 
-            # TODO: Generate VCF file based on JSON schema task
-            vcf_content = ""
-
-            # TODO: Generate CFTR annotations from the task
-            cftr_annotations = {}
+            vcf_content, cftr_annotations = await asyncio.to_thread(
+                run_variant_calling, task_data
+            )
 
             # Check timeout window
             elapsed_time = time.time() - start_time
