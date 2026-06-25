@@ -65,6 +65,20 @@ def _is_remote_url(path: str) -> bool:
     return path.startswith("http://") or path.startswith("https://")
 
 
+def _resolve_local_path(path: str) -> Optional[str]:
+    """Return an existing local file path, checking cwd and project root."""
+    expanded = os.path.expanduser(path)
+    candidates = [expanded]
+    if not os.path.isabs(expanded):
+        candidates.append(os.path.join(os.getcwd(), expanded))
+        candidates.append(os.path.join(PROJECT_ROOT, expanded))
+    for candidate in candidates:
+        resolved = os.path.abspath(candidate)
+        if os.path.isfile(resolved):
+            return resolved
+    return None
+
+
 def ensure_read_file(source: str, dest: str) -> None:
     """Copy a local FASTQ or download from a URL into the task work directory."""
     if os.path.exists(dest):
@@ -72,14 +86,16 @@ def ensure_read_file(source: str, dest: str) -> None:
 
     local_path = source[7:] if source.startswith("file://") else source
     if not _is_remote_url(local_path):
-        local_path = os.path.abspath(os.path.expanduser(local_path))
-        if os.path.isfile(local_path):
+        resolved = _resolve_local_path(local_path)
+        if resolved:
             os.makedirs(os.path.dirname(dest), exist_ok=True)
-            shutil.copy2(local_path, dest)
+            shutil.copy2(resolved, dest)
             return
+        checked = os.path.abspath(os.path.expanduser(local_path))
         raise VariantCallingError(
-            f"Read file not found: {local_path}. "
-            "Provide a valid local path, or fresh presigned read1_fastq/read2_fastq URLs in the task JSON."
+            f"Read file not found: {checked}. "
+            "Download reads first (see scripts/download_task_reads.py), "
+            "or use fresh presigned URLs in the task JSON."
         )
 
     download_file(source, dest)
