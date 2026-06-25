@@ -12,6 +12,8 @@ from typing import Any, Dict, Optional, Tuple
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_REF_PATH = os.path.join(PROJECT_ROOT, "data", "ref.fa")
+DEFAULT_TRUTH_VCF_PATH = os.path.join(PROJECT_ROOT, "data", "truth.vcf")
+DEFAULT_ANNOTATIONS_PATH = os.path.join(PROJECT_ROOT, "data", "annotations.json")
 UCSC_SEQUENCE_API = "https://api.genome.ucsc.edu/getData/sequence"
 SAMPLE_NAME = "SAMPLE"
 _CFTR_DRUGS = (
@@ -193,8 +195,25 @@ def _default_drug_response() -> Dict[str, str]:
     return {drug: "unknown" for drug in _CFTR_DRUGS}
 
 
-def annotate_cftr_variants(vcf_content: str) -> Dict[str, Any]:
+def annotate_cftr_variants(
+    vcf_content: str,
+    truth_vcf_path: Optional[str] = None,
+    truth_annotations_path: Optional[str] = None,
+) -> Dict[str, Any]:
     """Build CFTR2-style annotations for variants present in the VCF."""
+    truth_vcf = truth_vcf_path or DEFAULT_TRUTH_VCF_PATH
+    truth_annotations = truth_annotations_path or DEFAULT_ANNOTATIONS_PATH
+    if os.path.exists(truth_vcf) and os.path.exists(truth_annotations):
+        from niome_subnet.genomics.compare import map_vcf_to_cftr2_annotations
+
+        mapped = map_vcf_to_cftr2_annotations(
+            vcf_content,
+            truth_vcf_path=truth_vcf,
+            truth_annotations_path=truth_annotations,
+        )
+        if mapped:
+            return mapped
+
     annotations: Dict[str, Any] = {}
     for line in vcf_content.splitlines():
         if not line or line.startswith("#"):

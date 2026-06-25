@@ -12,6 +12,15 @@ if PROJECT_ROOT not in sys.path:
 
 from niome_subnet.genomics.variant_caller import run_variant_calling
 
+try:
+    from niome_subnet.genomics.compare import (
+        DEFAULT_TRUTH_ANNOTATIONS,
+        DEFAULT_TRUTH_VCF,
+        compare_submission,
+    )
+except ImportError:
+    compare_submission = None
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run CFTR variant calling for a task")
@@ -28,6 +37,16 @@ def main() -> None:
         "--output-annotations",
         default="output.annotations.json",
         help="Path to write CFTR annotations JSON",
+    )
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="Score output against data/truth.vcf and data/annotations.json",
+    )
+    parser.add_argument(
+        "--ref",
+        default=None,
+        help="Reference FASTA used when --compare is set (default: data/ref.fa)",
     )
     args = parser.parse_args()
 
@@ -48,6 +67,19 @@ def main() -> None:
     variant_lines = [line for line in vcf_content.splitlines() if line and not line.startswith("#")]
     print(f"Wrote {args.output_vcf} ({len(variant_lines)} variant records)")
     print(f"Wrote {args.output_annotations} ({len(annotations)} annotated variants)")
+
+    if args.compare:
+        if compare_submission is None:
+            raise SystemExit("compare_submission is unavailable (missing dependencies)")
+        result = compare_submission(
+            miner_vcf_path=args.output_vcf,
+            miner_annotations_path=args.output_annotations,
+            truth_vcf_path=DEFAULT_TRUTH_VCF,
+            truth_annotations_path=DEFAULT_TRUTH_ANNOTATIONS,
+            ref_fasta_path=args.ref or os.path.join(PROJECT_ROOT, "data", "ref.fa"),
+        )
+        print(f"Compared against {DEFAULT_TRUTH_VCF} and {DEFAULT_TRUTH_ANNOTATIONS}")
+        print(f"Final score: {result.final_score:.4f} (VCF {result.vcf_score:.4f}, annotations {result.annotation_score:.4f})")
 
 
 if __name__ == "__main__":
