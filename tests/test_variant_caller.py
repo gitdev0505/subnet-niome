@@ -1,6 +1,7 @@
 """Tests for variant calling helpers."""
 
 from niome_subnet.genomics.variant_caller import (
+    VariantCallingError,
     _vcf_column_names,
     annotate_cftr_variants,
     build_empty_vcf,
@@ -68,6 +69,19 @@ def test_vcf_column_names_strips_hash_from_chrom():
         "FORMAT",
         "SAMPLE",
     }
+
+
+def test_ensure_reference_rejects_vcf(tmp_path):
+    vcf_path = tmp_path / "truth.vcf"
+    vcf_path.write_text("##fileformat=VCFv4.2\n#CHROM\tPOS\n", encoding="utf-8")
+
+    try:
+        ensure_reference(
+            "chr7", 117_480_000, 117_670_000, ref_fasta=str(vcf_path)
+        )
+        assert False, "expected VariantCallingError"
+    except VariantCallingError as exc:
+        assert "VCF file" in str(exc)
 
 
 def test_ensure_reference_detects_regional_fasta(tmp_path):

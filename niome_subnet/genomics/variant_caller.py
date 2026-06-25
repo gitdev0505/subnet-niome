@@ -90,6 +90,26 @@ def _fasta_sequence_length(fasta_path: str) -> int:
     return length
 
 
+def _validate_reference_fasta(ref_path: str) -> None:
+    """Reject non-FASTA paths (e.g. truth.vcf) before running BWA."""
+    if not os.path.exists(ref_path):
+        raise VariantCallingError(
+            f"Reference FASTA not found: {ref_path}. "
+            "Use data/ref.fa from validator ground truth, or omit --ref to download the task region from UCSC."
+        )
+    with open(ref_path, encoding="utf-8") as handle:
+        first_line = handle.readline()
+    if first_line.startswith("##fileformat=VCF"):
+        raise VariantCallingError(
+            f"'{ref_path}' is a VCF file, not a reference FASTA. "
+            "Use data/ref.fa for alignment (truth.vcf is only for validator scoring)."
+        )
+    if not first_line.startswith(">"):
+        raise VariantCallingError(
+            f"'{ref_path}' does not look like FASTA (expected header line starting with '>')."
+        )
+
+
 def ensure_reference(
     chrom: str,
     start: int,
@@ -100,12 +120,14 @@ def ensure_reference(
     ref_path = ref_fasta or os.environ.get("NIOME_REF_FASTA", DEFAULT_REF_PATH)
     region_length = end - start
     if os.path.exists(ref_path):
+        _validate_reference_fasta(ref_path)
         # Validator ground-truth ref.fa is a regional slice; BAM/VCF coords are local.
         if _fasta_sequence_length(ref_path) == region_length:
             return ref_path, start - 1
         return ref_path, 0
 
     fetch_reference_region(chrom, start, end, ref_path)
+    _validate_reference_fasta(ref_path)
     return ref_path, start - 1
 
 

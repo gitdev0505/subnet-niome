@@ -35,7 +35,7 @@ def main() -> None:
     parser.add_argument(
         "--ref",
         default=None,
-        help="Reference FASTA (default: data/ref.fa or UCSC download for the task region)",
+        help="Reference FASTA for alignment (default: data/ref.fa, or UCSC download). Not truth.vcf.",
     )
     args = parser.parse_args()
 
