@@ -12,9 +12,8 @@ from typing import Any, Dict, Optional, Tuple
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_REF_PATH = os.path.join(PROJECT_ROOT, "data", "ref.fa")
-DEFAULT_TRUTH_VCF_PATH = os.path.join(PROJECT_ROOT, "data", "truth.vcf")
-DEFAULT_ANNOTATIONS_PATH = os.path.join(PROJECT_ROOT, "data", "annotations.json")
 UCSC_SEQUENCE_API = "https://api.genome.ucsc.edu/getData/sequence"
+CHR7_ACCESSION = "NC_000007.14"
 SAMPLE_NAME = "SAMPLE"
 _CFTR_DRUGS = (
     "ivacaftor",
@@ -82,6 +81,15 @@ def fetch_reference_region(chrom: str, start: int, end: int, dest: str) -> None:
             handle.write(sequence[offset : offset + 80] + "\n")
 
 
+def _fasta_sequence_length(fasta_path: str) -> int:
+    length = 0
+    with open(fasta_path, encoding="utf-8") as handle:
+        for line in handle:
+            if not line.startswith(">"):
+                length += len(line.strip())
+    return length
+
+
 def ensure_reference(
     chrom: str,
     start: int,
@@ -90,7 +98,11 @@ def ensure_reference(
 ) -> Tuple[str, int]:
     """Return reference FASTA path and coordinate offset for regional fallbacks."""
     ref_path = ref_fasta or os.environ.get("NIOME_REF_FASTA", DEFAULT_REF_PATH)
+    region_length = end - start
     if os.path.exists(ref_path):
+        # Validator ground-truth ref.fa is a regional slice; BAM/VCF coords are local.
+        if _fasta_sequence_length(ref_path) == region_length:
+            return ref_path, start - 1
         return ref_path, 0
 
     fetch_reference_region(chrom, start, end, ref_path)
@@ -195,25 +207,13 @@ def _default_drug_response() -> Dict[str, str]:
     return {drug: "unknown" for drug in _CFTR_DRUGS}
 
 
-def annotate_cftr_variants(
-    vcf_content: str,
-    truth_vcf_path: Optional[str] = None,
-    truth_annotations_path: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Build CFTR2-style annotations for variants present in the VCF."""
-    truth_vcf = truth_vcf_path or DEFAULT_TRUTH_VCF_PATH
-    truth_annotations = truth_annotations_path or DEFAULT_ANNOTATIONS_PATH
-    if os.path.exists(truth_vcf) and os.path.exists(truth_annotations):
-        from niome_subnet.genomics.compare import map_vcf_to_cftr2_annotations
+def _vcf_to_hgvs(chrom: str, pos: str, ref: str, alt: str) -> str:
+    accession = CHR7_ACCESSION if chrom == "chr7" else chrom
+    return f"{accession}:g.{pos}{ref}>{alt.split(',')[0]}"
 
-        mapped = map_vcf_to_cftr2_annotations(
-            vcf_content,
-            truth_vcf_path=truth_vcf,
-            truth_annotations_path=truth_annotations,
-        )
-        if mapped:
-            return mapped
 
+def annotate_cftr_variants(vcf_content: str) -> Dict[str, Any]:
+    """Build CFTR annotations for variants present in the VCF."""
     annotations: Dict[str, Any] = {}
     for line in vcf_content.splitlines():
         if not line or line.startswith("#"):
@@ -223,9 +223,15 @@ def annotate_cftr_variants(
             continue
 
         chrom, pos, variant_id, ref, alt = fields[0], fields[1], fields[2], fields[3], fields[4]
-        rsid = variant_id if variant_id.startswith("rs") else f"{chrom}:{pos}"
-        annotations[rsid] = {
-            "hgvs": f"{chrom}:g.{pos}{ref}>{alt.split(',')[0]}",
+        hgvs = _vcf_to_hgvs(chrom, pos, ref, alt)
+        if variant_id.startswith("rs"):
+            key = variant_id
+        elif variant_id not in (".", ""):
+            key = variant_id
+        else:
+            key = hgvs
+        annotations[key] = {
+            "hgvs": hgvs,
             "clinical_significance": "unknown",
             "drug_response": _default_drug_response(),
         }
