@@ -24,6 +24,7 @@ class GenomicsTaskSynapse(bt.Synapse):
     encrypted_annotations: Optional[str] = None # JSON payload from encryption.encrypt()
     elapsed_time: Optional[float] = None
     signature: Optional[str] = None  # Cryptographic signature
+    error: Optional[str] = None  # Set when variant calling fails
 
     def deserialize(self) -> bt.Synapse:
         """Deserialize the GenomicsTaskSynapse Object."""

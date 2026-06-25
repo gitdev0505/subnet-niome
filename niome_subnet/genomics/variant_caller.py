@@ -142,6 +142,20 @@ def _fasta_sequence_length(fasta_path: str) -> int:
     return length
 
 
+def _is_valid_reference_fasta(ref_path: str) -> bool:
+    """Return True if ``ref_path`` looks like a usable FASTA."""
+    if not os.path.exists(ref_path):
+        return False
+    try:
+        with open(ref_path, encoding="utf-8") as handle:
+            first_line = handle.readline()
+    except OSError:
+        return False
+    if first_line.startswith("##fileformat=VCF"):
+        return False
+    return first_line.startswith(">")
+
+
 def _validate_reference_fasta(ref_path: str) -> None:
     """Reject non-FASTA paths (e.g. truth.vcf) before running BWA."""
     if not os.path.exists(ref_path):
@@ -149,17 +163,26 @@ def _validate_reference_fasta(ref_path: str) -> None:
             f"Reference FASTA not found: {ref_path}. "
             "Use data/ref.fa from validator ground truth, or omit --ref to download the task region from UCSC."
         )
+    if _is_valid_reference_fasta(ref_path):
+        return
     with open(ref_path, encoding="utf-8") as handle:
-        first_line = handle.readline()
-    if first_line.startswith("##fileformat=VCF"):
+        preview = handle.readline().strip()[:80]
+    if preview.startswith("##fileformat=VCF"):
         raise VariantCallingError(
             f"'{ref_path}' is a VCF file, not a reference FASTA. "
             "Use data/ref.fa for alignment (truth.vcf is only for validator scoring)."
         )
-    if not first_line.startswith(">"):
-        raise VariantCallingError(
-            f"'{ref_path}' does not look like FASTA (expected header line starting with '>')."
-        )
+    raise VariantCallingError(
+        f"'{ref_path}' does not look like FASTA (expected header line starting with '>'). "
+        f"First line: {preview!r}. Remove the file to re-download from UCSC."
+    )
+
+
+def _remove_bwa_index(ref_fasta: str) -> None:
+    for suffix in (".amb", ".ann", ".bwt", ".pac", ".sa", ".fai"):
+        path = ref_fasta + suffix
+        if os.path.exists(path):
+            os.remove(path)
 
 
 def ensure_reference(
@@ -171,12 +194,15 @@ def ensure_reference(
     """Return reference FASTA path and coordinate offset for regional fallbacks."""
     ref_path = ref_fasta or os.environ.get("NIOME_REF_FASTA", DEFAULT_REF_PATH)
     region_length = end - start
-    if os.path.exists(ref_path):
-        _validate_reference_fasta(ref_path)
+    if os.path.exists(ref_path) and _is_valid_reference_fasta(ref_path):
         # Validator ground-truth ref.fa is a regional slice; BAM/VCF coords are local.
         if _fasta_sequence_length(ref_path) == region_length:
             return ref_path, start - 1
         return ref_path, 0
+
+    if os.path.exists(ref_path):
+        _remove_bwa_index(ref_path)
+        os.remove(ref_path)
 
     fetch_reference_region(chrom, start, end, ref_path)
     _validate_reference_fasta(ref_path)

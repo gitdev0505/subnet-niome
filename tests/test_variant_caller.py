@@ -2,6 +2,7 @@
 
 from niome_subnet.genomics.variant_caller import (
     VariantCallingError,
+    _validate_reference_fasta,
     _vcf_column_names,
     annotate_cftr_variants,
     build_empty_vcf,
@@ -98,12 +99,31 @@ def test_ensure_reference_rejects_vcf(tmp_path):
     vcf_path.write_text("##fileformat=VCFv4.2\n#CHROM\tPOS\n", encoding="utf-8")
 
     try:
-        ensure_reference(
-            "chr7", 117_480_000, 117_670_000, ref_fasta=str(vcf_path)
-        )
+        _validate_reference_fasta(str(vcf_path))
         assert False, "expected VariantCallingError"
     except VariantCallingError as exc:
         assert "VCF file" in str(exc)
+
+
+def test_ensure_reference_replaces_invalid_file(tmp_path, monkeypatch):
+    ref_path = tmp_path / "ref.fa"
+    ref_path.write_text("not fasta\n", encoding="utf-8")
+
+    def fake_fetch(chrom, start, end, dest):
+        with open(dest, "w", encoding="utf-8") as handle:
+            handle.write(f">{chrom}\n" + ("A" * (end - start)) + "\n")
+
+    monkeypatch.setattr(
+        "niome_subnet.genomics.variant_caller.fetch_reference_region",
+        fake_fetch,
+    )
+
+    path, offset = ensure_reference(
+        "chr7", 117_480_000, 117_670_000, ref_fasta=str(ref_path)
+    )
+    assert path == str(ref_path)
+    assert offset == 117_479_999
+    assert ref_path.read_text(encoding="utf-8").startswith(">chr7\n")
 
 
 def test_ensure_reference_detects_regional_fasta(tmp_path):
