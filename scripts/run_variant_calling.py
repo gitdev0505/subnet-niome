@@ -37,10 +37,27 @@ def main() -> None:
         default=None,
         help="Reference FASTA for alignment (default: data/ref.fa, or UCSC download). Not truth.vcf.",
     )
+    parser.add_argument(
+        "--read1",
+        default=None,
+        help="Local FASTQ for read 1 (overrides task input; use when S3 URLs expired)",
+    )
+    parser.add_argument(
+        "--read2",
+        default=None,
+        help="Local FASTQ for read 2 (overrides task input; use when S3 URLs expired)",
+    )
     args = parser.parse_args()
 
     with open(args.task_json, encoding="utf-8") as handle:
         task_data = json.load(handle)
+
+    if args.read1 or args.read2:
+        task_data.setdefault("input", {})
+        if args.read1:
+            task_data["input"]["read1_fastq"] = args.read1
+        if args.read2:
+            task_data["input"]["read2_fastq"] = args.read2
 
     vcf_content, annotations = run_variant_calling(task_data, ref_fasta=args.ref)
 

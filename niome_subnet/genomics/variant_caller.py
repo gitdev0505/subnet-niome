@@ -61,6 +61,30 @@ def _run(cmd: list[str], *, shell: bool = False) -> None:
         )
 
 
+def _is_remote_url(path: str) -> bool:
+    return path.startswith("http://") or path.startswith("https://")
+
+
+def ensure_read_file(source: str, dest: str) -> None:
+    """Copy a local FASTQ or download from a URL into the task work directory."""
+    if os.path.exists(dest):
+        return
+
+    local_path = source[7:] if source.startswith("file://") else source
+    if not _is_remote_url(local_path):
+        local_path = os.path.abspath(os.path.expanduser(local_path))
+        if os.path.isfile(local_path):
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            shutil.copy2(local_path, dest)
+            return
+        raise VariantCallingError(
+            f"Read file not found: {local_path}. "
+            "Provide a valid local path, or fresh presigned read1_fastq/read2_fastq URLs in the task JSON."
+        )
+
+    download_file(source, dest)
+
+
 def download_file(url: str, dest: str) -> None:
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     try:
@@ -69,7 +93,8 @@ def download_file(url: str, dest: str) -> None:
         if exc.code in (403, 410):
             raise VariantCallingError(
                 f"Failed to download {dest} (HTTP {exc.code}): presigned read URL likely expired. "
-                "Fetch a fresh task from the NIOME backend and update read1_fastq/read2_fastq in your task JSON."
+                "Use --read1/--read2 with local FASTQ paths, put local paths in the task JSON, "
+                "or fetch a fresh task from the NIOME backend."
             ) from exc
         raise VariantCallingError(
             f"Failed to download {dest} (HTTP {exc.code}): {exc.reason}"
@@ -295,10 +320,8 @@ def run_variant_calling(
     vcf_path = os.path.join(work_dir, "variants.vcf")
 
     task_input = task_data["input"]
-    if not os.path.exists(read1_path):
-        download_file(task_input["read1_fastq"], read1_path)
-    if not os.path.exists(read2_path):
-        download_file(task_input["read2_fastq"], read2_path)
+    ensure_read_file(task_input["read1_fastq"], read1_path)
+    ensure_read_file(task_input["read2_fastq"], read2_path)
 
     ref_path, coordinate_offset = ensure_reference(chrom, start, end, ref_fasta=ref_fasta)
     call_region = region if coordinate_offset == 0 else f"{chrom}:1-{end - start}"

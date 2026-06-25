@@ -5,6 +5,7 @@ from niome_subnet.genomics.variant_caller import (
     _vcf_column_names,
     annotate_cftr_variants,
     build_empty_vcf,
+    ensure_read_file,
     ensure_reference,
     normalize_vcf_sample_column,
     parse_region,
@@ -69,6 +70,27 @@ def test_vcf_column_names_strips_hash_from_chrom():
         "FORMAT",
         "SAMPLE",
     }
+
+
+def test_ensure_read_file_copies_local_fastq(tmp_path):
+    source = tmp_path / "reads_1.fq"
+    source.write_text("@read1\nACGT\n", encoding="utf-8")
+    dest = tmp_path / "work" / "read_1.fq"
+
+    ensure_read_file(str(source), str(dest))
+
+    assert dest.read_text(encoding="utf-8") == "@read1\nACGT\n"
+
+
+def test_ensure_read_file_skips_when_dest_exists(tmp_path):
+    source = tmp_path / "reads_1.fq"
+    source.write_text("@read1\nACGT\n", encoding="utf-8")
+    dest = tmp_path / "read_1.fq"
+    dest.write_text("cached\n", encoding="utf-8")
+
+    ensure_read_file(str(source), str(dest))
+
+    assert dest.read_text(encoding="utf-8") == "cached\n"
 
 
 def test_ensure_reference_rejects_vcf(tmp_path):
