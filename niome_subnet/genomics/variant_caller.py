@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import urllib.error
 import urllib.request
 from typing import Any, Dict, Optional, Tuple
 
@@ -62,7 +63,17 @@ def _run(cmd: list[str], *, shell: bool = False) -> None:
 
 def download_file(url: str, dest: str) -> None:
     os.makedirs(os.path.dirname(dest), exist_ok=True)
-    urllib.request.urlretrieve(url, dest)
+    try:
+        urllib.request.urlretrieve(url, dest)
+    except urllib.error.HTTPError as exc:
+        if exc.code in (403, 410):
+            raise VariantCallingError(
+                f"Failed to download {dest} (HTTP {exc.code}): presigned read URL likely expired. "
+                "Fetch a fresh task from the NIOME backend and update read1_fastq/read2_fastq in your task JSON."
+            ) from exc
+        raise VariantCallingError(
+            f"Failed to download {dest} (HTTP {exc.code}): {exc.reason}"
+        ) from exc
 
 
 def fetch_reference_region(chrom: str, start: int, end: int, dest: str) -> None:
