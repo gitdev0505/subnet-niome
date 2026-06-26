@@ -373,6 +373,21 @@ def run_variant_calling(
     call_variants(ref_path, bam_path, call_region, vcf_path)
 
     try:
+        from niome_subnet.genomics.ml.diffusion_refiner import refine_vcf_with_diffusion
+
+        raw_vcf = vcf_to_text(vcf_path)
+        refined_vcf = refine_vcf_with_diffusion(
+            raw_vcf,
+            bam_path,
+            ref_path,
+            call_region,
+        )
+        with open(vcf_path, "w", encoding="utf-8") as handle:
+            handle.write(refined_vcf)
+    except Exception:
+        pass
+
+    try:
         vcf_content = adjust_vcf_coordinates(vcf_to_text(vcf_path), coordinate_offset)
     except (subprocess.CalledProcessError, VariantCallingError):
         vcf_content = build_empty_vcf(region)
