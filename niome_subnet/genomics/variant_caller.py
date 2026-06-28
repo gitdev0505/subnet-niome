@@ -197,7 +197,7 @@ def ensure_reference(
     if os.path.exists(ref_path) and _is_valid_reference_fasta(ref_path):
         # Validator ground-truth ref.fa is a regional slice; BAM/VCF coords are local.
         if _fasta_sequence_length(ref_path) == region_length:
-            return ref_path, start - 1
+            return ref_path, start
         return ref_path, 0
 
     if os.path.exists(ref_path):
@@ -206,7 +206,7 @@ def ensure_reference(
 
     fetch_reference_region(chrom, start, end, ref_path)
     _validate_reference_fasta(ref_path)
-    return ref_path, start - 1
+    return ref_path, start
 
 
 def index_reference(ref_fasta: str) -> None:

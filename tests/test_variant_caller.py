@@ -122,7 +122,7 @@ def test_ensure_reference_replaces_invalid_file(tmp_path, monkeypatch):
         "chr7", 117_480_000, 117_670_000, ref_fasta=str(ref_path)
     )
     assert path == str(ref_path)
-    assert offset == 117_479_999
+    assert offset == 117_480_000
     assert ref_path.read_text(encoding="utf-8").startswith(">chr7\n")
 
 
@@ -133,7 +133,7 @@ def test_ensure_reference_detects_regional_fasta(tmp_path):
     _, offset = ensure_reference(
         "chr7", 117_480_000, 117_670_000, ref_fasta=str(ref_path)
     )
-    assert offset == 117_479_999
+    assert offset == 117_480_000
 
 
 def test_ensure_reference_full_genome_has_no_offset(tmp_path):
