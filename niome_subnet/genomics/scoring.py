@@ -12,9 +12,23 @@ from niome_subnet.genomics.model import GroundTruth, MinerScore, MinerSubmission
 # Compress and index vcf
 # -----------------------------
 def preprocess_vcf(vcf_path: str) -> str:
-    subprocess.run(f"bgzip -c {vcf_path} > {vcf_path}.gz", shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(f"tabix -f -p vcf {vcf_path}.gz", shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return f"{vcf_path}.gz"
+    """Compress and index a plain VCF using bcftools (no bgzip/tabix required)."""
+    out_gz = f"{vcf_path}.gz"
+    subprocess.run(
+        ["bcftools", "view", "-Oz", "-o", out_gz, vcf_path],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    subprocess.run(
+        ["bcftools", "index", "-f", out_gz],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return out_gz
 
 
 # -----------------------------
