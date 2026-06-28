@@ -73,9 +73,18 @@ def main() -> None:
     for label, path in (
         ("truth VCF", args.truth_vcf),
         ("truth annotations", args.truth_annotations),
+        ("reference FASTA", args.ref),
+        ("miner VCF", args.miner_vcf),
     ):
         if not os.path.exists(path):
             raise SystemExit(f"Missing {label}: {path}")
+
+    for label, path in (("read 1", args.read1), ("read 2", args.read2)):
+        if not os.path.exists(path):
+            print(f"Warning: missing {label} FASTQ: {path} (depth weighting disabled)")
+
+    if args.miner_annotations and not os.path.exists(args.miner_annotations):
+        raise SystemExit(f"Missing miner annotations: {args.miner_annotations}")
 
     if args.write_annotations:
         with open(args.miner_vcf, encoding="utf-8") as handle:

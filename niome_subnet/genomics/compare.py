@@ -188,7 +188,18 @@ def compare_submission(
         and os.path.exists(read2_path)
         and os.path.exists(ref_fasta_path)
     ):
-        bam = create_mapping_file(ref_fasta_path, read1_path, read2_path)
+        try:
+            bam = create_mapping_file(ref_fasta_path, read1_path, read2_path)
+        except Exception as exc:
+            print(
+                f"Warning: could not build BAM for depth weighting ({exc}); "
+                "scoring without read depth."
+            )
+    elif read1_path or read2_path:
+        print(
+            "Warning: read FASTQs or reference missing; scoring without read depth. "
+            f"read1={read1_path!r} read2={read2_path!r} ref={ref_fasta_path!r}"
+        )
 
     return score(
         MinerSubmission(

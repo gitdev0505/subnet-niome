@@ -101,6 +101,9 @@ def normalize_vcf(vcf_in, ref_fai, out):
 # 3. LOAD DEPTH FROM BAM
 # -----------------------------
 def load_depth(bam_path):
+    if not bam_path or not os.path.exists(bam_path):
+        return defaultdict(int)
+
     bam = pysam.AlignmentFile(bam_path, "rb")
     depth = defaultdict(int)
 
