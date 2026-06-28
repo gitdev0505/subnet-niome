@@ -38,7 +38,7 @@ class GroundTruth(BaseModel):
 class MinerSubmission(BaseModel):
     uid: int
     vcf_content: str
-    response_time: float
+    response_time: Optional[float] = None
     cftr_annotations: Optional[Dict[str, Any]] = None
 
 
@@ -78,7 +78,7 @@ class MinerScore(BaseModel):
     precision: float
     recall: float
     f1_score: float
-    response_time: float
+    response_time: Optional[float] = None
     vcf_score: float
     annotation_score: float
     final_score: float
@@ -93,7 +93,7 @@ class MinerScoreDto(BaseModel):
     precision: float
     recall: float
     f1_score: float
-    response_time: float
+    response_time: Optional[float] = None
     vcf_score: float
     annotation_score: float
     final_score: float
